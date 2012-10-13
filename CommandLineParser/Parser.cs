@@ -14,11 +14,12 @@ namespace CommandLineParser
 {
     public class Parser
     {
-        private Dictionary<string, string> Parameters;
+        private Dictionary<string, string> ParsedArguments;
+        private Dictionary<string, PropertyInfo> Parameters;
 
-        private void ParseParameters(string[] args)
+        private void ParseArguments(string[] args)
         {
-            Parameters = new Dictionary<string, string>();
+            ParsedArguments = new Dictionary<string, string>();
             Regex splitter = new Regex(@"^-{1,2}|^/|=|:", RegexOptions.IgnoreCase | RegexOptions.Compiled);
             Regex remover = new Regex(@"^['""]?(.*?)['""]?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -43,10 +44,10 @@ namespace CommandLineParser
                     case 1:
                         if (Parameter != null)
                         {
-                            if (!Parameters.ContainsKey(Parameter))
+                            if (!ParsedArguments.ContainsKey(Parameter))
                             {
                                 Parts[0] = remover.Replace(Parts[0], "$1");
-                                Parameters.Add(Parameter, Parts[0]);
+                                ParsedArguments.Add(Parameter, Parts[0]);
                             }
                             Parameter = null;
                         }
@@ -57,8 +58,8 @@ namespace CommandLineParser
                         // With no value, default to boolean 'true'
                         if (Parameter != null)
                         {
-                            if (!Parameters.ContainsKey(Parameter))
-                                Parameters.Add(Parameter, "true");
+                            if (!ParsedArguments.ContainsKey(Parameter))
+                                ParsedArguments.Add(Parameter, "true");
                         }
                         Parameter = Parts[1];
                         break;
@@ -69,16 +70,16 @@ namespace CommandLineParser
                         // With no value, set it to true.
                         if (Parameter != null)
                         {
-                            if (!Parameters.ContainsKey(Parameter))
-                                Parameters.Add(Parameter, "true");
+                            if (!ParsedArguments.ContainsKey(Parameter))
+                                ParsedArguments.Add(Parameter, "true");
                         }
                         Parameter = Parts[1];
 
                         // Remove possible enclosing characters (",')
-                        if (!Parameters.ContainsKey(Parameter))
+                        if (!ParsedArguments.ContainsKey(Parameter))
                         {
                             Parts[2] = remover.Replace(Parts[2], "$1");
-                            Parameters.Add(Parameter, Parts[2]);
+                            ParsedArguments.Add(Parameter, Parts[2]);
                         }
                         Parameter = null;
                         break;
@@ -87,9 +88,9 @@ namespace CommandLineParser
             // In case a parameter is still waiting
             if (Parameter != null)
             {
-                if (!Parameters.ContainsKey(Parameter))
+                if (!ParsedArguments.ContainsKey(Parameter))
                 {
-                    Parameters.Add(Parameter, "true");
+                    ParsedArguments.Add(Parameter, "true");
                 }
             }
         }
@@ -102,16 +103,16 @@ namespace CommandLineParser
 
         public void Parse(string[] args)
         {
-            ParseParameters(args);
+            ParseArguments(args); // TODO: do this in another way.
+            SetupParameterDictionary();
 
             // Set values on properties for found parameters.
-            foreach (var entry in Parameters)
+            foreach (var entry in ParsedArguments)
             {
                 var parameterName = entry.Key;
                 var valueString = entry.Value;
 
-                var prop = GetPropertyByParameterAttributeName(parameterName);
-                if (prop == null) // parameter mismatch match.
+                if (!Parameters.ContainsKey(parameterName)) // parameter mismatch match.
                 {
                     throw new InvalidProgramException(String.Format("Unknown parameter specified: {0}", parameterName));
                 }
@@ -119,8 +120,8 @@ namespace CommandLineParser
                 object value = null;
                 try
                 {
-                    value = ConvertStringToObject(valueString, prop.PropertyType);
-                    prop.SetValue(this, value, null);
+                    value = ConvertStringToObject(valueString, Parameters[parameterName].PropertyType);
+                    Parameters[parameterName].SetValue(this, value, null);
                 }
                 catch(Exception ex)
                 {
@@ -134,20 +135,18 @@ namespace CommandLineParser
             return TypeDescriptor.GetConverter(type).ConvertFromString(null, CultureInfo.InvariantCulture, text);
         }
 
-        private PropertyInfo GetPropertyByParameterAttributeName(string paramAttributeName)
+        private void SetupParameterDictionary()
         {
+            Parameters = new Dictionary<string, PropertyInfo>();
+
             foreach (var prop in GetType().GetProperties())
             {
                 var attribute = (ParameterAttribute)Attribute.GetCustomAttribute(prop, typeof(ParameterAttribute));
                 if (attribute != null)
                 {
-                    if (attribute.ParamName == paramAttributeName)
-                    {
-                        return prop;
-                    }
+                    Parameters.Add(attribute.ParamName, prop);
                 }
             }
-            return null;
         }
 
 
