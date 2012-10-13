@@ -20,7 +20,7 @@ namespace CommandLineParser
         private void ParseArguments(string[] args)
         {
             ParsedArguments = new Dictionary<string, string>();
-            Regex splitter = new Regex(@"^-{1,2}|^/|=|:", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            Regex splitter = new Regex(@"^-{1,2}|^/|=|:| ", RegexOptions.IgnoreCase | RegexOptions.Compiled);
             Regex remover = new Regex(@"^['""]?(.*?)['""]?$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
             string Parameter = null;
@@ -31,8 +31,10 @@ namespace CommandLineParser
             // Examples: 
             // -param1 value1 --param2 /param3:"Test-:-work" 
             //   /param4=happy -param5 '--=nice=--'
-            foreach (string arg in args)
+            foreach (string argument in args)
             {
+                var arg = argument.Trim();
+
                 // Look for new parameters (-,/ or --) and a
                 // possible enclosed value (=,:)
                 Parts = splitter.Split(arg, 3);
@@ -59,7 +61,7 @@ namespace CommandLineParser
                         if (Parameter != null)
                         {
                             if (!ParsedArguments.ContainsKey(Parameter))
-                                ParsedArguments.Add(Parameter, "true");
+                                ParsedArguments.Add(Parameter, true.ToString());
                         }
                         Parameter = Parts[1];
                         break;
@@ -71,7 +73,7 @@ namespace CommandLineParser
                         if (Parameter != null)
                         {
                             if (!ParsedArguments.ContainsKey(Parameter))
-                                ParsedArguments.Add(Parameter, "true");
+                                ParsedArguments.Add(Parameter, true.ToString());
                         }
                         Parameter = Parts[1];
 
@@ -90,7 +92,7 @@ namespace CommandLineParser
             {
                 if (!ParsedArguments.ContainsKey(Parameter))
                 {
-                    ParsedArguments.Add(Parameter, "true");
+                    ParsedArguments.Add(Parameter, true.ToString());
                 }
             }
         }
