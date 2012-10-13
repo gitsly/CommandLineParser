@@ -107,15 +107,25 @@ namespace CommandLineParser
             // Set values on properties for found parameters.
             foreach (var entry in Parameters)
             {
-                var parameterName = (string)entry.Key;
+                var parameterName = entry.Key;
+                var valueString = entry.Value;
 
                 var prop = GetPropertyByParameterAttributeName(parameterName);
                 if (prop == null) // parameter mismatch match.
                 {
-                    throw new InvalidOperationException(String.Format("Unknown parameter specified: {0}", parameterName));
+                    throw new InvalidProgramException(String.Format("Unknown parameter specified: {0}", parameterName));
                 }
 
-                prop.SetValue(this, ConvertStringToObject(entry.Value, prop.PropertyType), null);
+                object value = null;
+                try
+                {
+                    value = ConvertStringToObject(valueString, prop.PropertyType);
+                    prop.SetValue(this, value, null);
+                }
+                catch(Exception ex)
+                {
+                    throw new InvalidProgramException(String.Format("Invalid value: {0}, specified for parameter {1}", valueString, parameterName), ex);
+                }
             }
         }
 

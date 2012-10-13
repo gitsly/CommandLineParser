@@ -20,6 +20,8 @@ namespace CommandLineParser.Tests
             [ParameterAttribute("testBool")]
             public bool BooleanParam { get; set; }
 
+            [ParameterAttribute("testInt32")]
+            public bool Int32Param { get; set; }
 
         }
 
@@ -32,6 +34,21 @@ namespace CommandLineParser.Tests
 
             parser.Parse(new string[] { "--testParam=123" });
             Assert.AreEqual("123", parser.TestParam);
+        }
+
+        [Test]
+        public void ShouldThrowInvalidProgramExceptionOnInvalidValueForParam()
+        {
+            var parser = new BasicCommandLineTest();
+
+            parser.Parse(new string[] { "--testInt32" });
+            Assert.IsFalse(parser.BooleanParam);
+            //Assert.AreEqual(100, parser.Int32Param);
+
+            Assert.Throws(typeof(InvalidProgramException), delegate
+            {
+                parser.Parse(new string[] { "--testBool 123" });
+            });
         }
 
         [Test]
