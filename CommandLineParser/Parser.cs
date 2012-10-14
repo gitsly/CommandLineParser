@@ -60,10 +60,54 @@ namespace CommandLineParser
     \G	Specifies that the matches must be consecutive, without any intervening non-matching characters. 
     */
 
+    
+
     public class Parser
     {
         private Dictionary<string, string> ParsedArguments;
         private Dictionary<string, PropertyInfo> Parameters;
+
+        public enum Token
+        {
+            Identifier,
+            String,
+            Number,
+            Separator
+        }
+
+        public List<Tuple<string, Token>> Tokenize(string commandLine)
+        {
+            var tokenRegex = new Dictionary<Token, Regex>();
+            tokenRegex.Add(Token.Identifier, new Regex(@"^([a-z|_][a-z|0-9]*)", RegexOptions.IgnoreCase));
+            tokenRegex.Add(Token.String, new Regex(@"^""(.*)""|^'(.*)'"));
+            tokenRegex.Add(Token.Number, new Regex(@"^([0-9]+[,.]?[0-9]+)", RegexOptions.IgnoreCase));
+            tokenRegex.Add(Token.Separator, new Regex(@"^(-{1,2}| |[=:])", RegexOptions.IgnoreCase));
+
+            var tokens = new List<Tuple<string, Token>>();
+
+            var reminder = commandLine.Trim();
+            while (reminder.Length > 0)
+            {
+                // Try match valid tokens.
+                Match match = null;
+                foreach (var token in tokenRegex)
+                {
+                    match = token.Value.Match(reminder);
+                    if (match.Success)
+                    {
+                        tokens.Add(new Tuple<string, Token>(match.Value, token.Key));
+                        reminder = reminder.Substring(match.Length);
+                        break;
+                    }
+                }
+                if (match == null || !match.Success)
+                {
+                    throw new Exception(String.Format("Invalid token: '{0}'", reminder));
+                }
+            }
+
+            return tokens;
+        }
 
         private void ParseArguments(string[] args)
         {

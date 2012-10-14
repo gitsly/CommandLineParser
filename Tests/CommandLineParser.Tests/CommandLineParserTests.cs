@@ -37,19 +37,19 @@ namespace CommandLineParser.Tests
             Assert.IsTrue(match.Success);
         }
 
+
+
+
         [Test]
-        public void TestRegex2()
+        public void TestTokenize()
         {
-            var rString = new Regex(@"^""(.*)""|'(.*)'"); // matches quoted (double or single) string.
-            var rIdentifier = new Regex(@"^([a-z|_][a-z|0-9]+)", RegexOptions.IgnoreCase);
-            var rNumber = new Regex(@"^([0-9]+[,.]?[0-9]+)", RegexOptions.IgnoreCase);
-            var rSeparator = new Regex(@"^(-{1,2}| |[=:])", RegexOptions.IgnoreCase);
+            var parser = new BasicCommandLineTest();
 
-            string args = ":bla";
-
-            var match = rSeparator.Match(args);
-
-            Assert.IsTrue(match.Success);
+            var result = parser.Tokenize("--heppas -was a 'ninja'");
+            Assert.AreEqual(9, result.Count);
+            Assert.AreEqual(5, result.Where(r => r.Item2 == Parser.Token.Separator).Count());
+            Assert.AreEqual(3, result.Where(r => r.Item2 == Parser.Token.Identifier).Count());
+            Assert.AreEqual(1, result.Where(r => r.Item2 == Parser.Token.String).Count());
         }
 
 
