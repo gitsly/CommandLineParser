@@ -13,4 +13,7 @@ TODO
 * Tokenize command line input (unified string of entire command line, match up tokens with regexps).
   Store in list and feed parser.
 
+* Output automatic help for commandline parameters (help can be specified in attribute).
+
+* Output set of parameters (for help).
 
