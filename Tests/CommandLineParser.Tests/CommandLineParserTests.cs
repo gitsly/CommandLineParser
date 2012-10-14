@@ -5,6 +5,7 @@ using System.Text;
 using NUnit.Framework;
 using CommandLineParser;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace CommandLineParser.Tests
 {
@@ -23,6 +24,32 @@ namespace CommandLineParser.Tests
             [ParameterAttribute("testInt")]
             public Int32 Int32Param { get; set; }
 
+        }
+
+
+        [Test]
+        public void TestRegex1()
+        {
+            var regularExpression = new Regex(@"""(.*)""|'(.*)'"); // matches quoted (double or single) string.
+            var test = @"""heppas""";
+            var match = regularExpression.Match(test);
+
+            Assert.IsTrue(match.Success);
+        }
+
+        [Test]
+        public void TestRegex2()
+        {
+            var rString = new Regex(@"^""(.*)""|'(.*)'"); // matches quoted (double or single) string.
+            var rIdentifier = new Regex(@"^([a-z|_][a-z|0-9]+)", RegexOptions.IgnoreCase);
+            var rNumber = new Regex(@"^([0-9]+[,.]?[0-9]+)", RegexOptions.IgnoreCase);
+            var rSeparator = new Regex(@"^(-{1,2}| |[=:])", RegexOptions.IgnoreCase);
+
+            string args = ":bla";
+
+            var match = rSeparator.Match(args);
+
+            Assert.IsTrue(match.Success);
         }
 
 
