@@ -35,8 +35,7 @@ namespace CommandLineParser.Tests
             Assert.AreEqual(11, result.Count);
             Assert.AreEqual(6, result.Where(r => r.Item2 == Parser.Token.Separator).Count());
             Assert.AreEqual(3, result.Where(r => r.Item2 == Parser.Token.Identifier).Count());
-            Assert.AreEqual(1, result.Where(r => r.Item2 == Parser.Token.String).Count());
-            Assert.AreEqual(1, result.Where(r => r.Item2 == Parser.Token.Number).Count());
+            Assert.AreEqual(2, result.Where(r => r.Item2 == Parser.Token.Value).Count());
         }
 
         /*

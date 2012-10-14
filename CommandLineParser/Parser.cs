@@ -19,8 +19,7 @@ namespace CommandLineParser
         public enum Token
         {
             Identifier,
-            String,
-            Number,
+            Value,
             Separator
         }
 
@@ -28,10 +27,10 @@ namespace CommandLineParser
         {
             var tokenRegex = new List<Tuple<Token, Regex>>();
             tokenRegex.Add(new Tuple<Token, Regex>(Token.Identifier, new Regex(@"^([a-z|_][a-z|0-9]*)", RegexOptions.IgnoreCase)));
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.String, new Regex(@"^""(.*)""")));
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.String, new Regex(@"^'(.*)'")));
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Number, new Regex(@"^([0-9]+[,.]?[0-9]+)", RegexOptions.IgnoreCase)));
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Separator, new Regex(@"^(-{1,2}|^/| +|[ *=: *])", RegexOptions.IgnoreCase)));
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Separator, new Regex(@"^(-{1,2}|^/| +|[ *=: *])", RegexOptions.IgnoreCase))); // whitspace, =, / etc.
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^""(.*)"""))); // "" enclosed string
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^'(.*)'"))); // '' enclosed string 
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^([0-9]+[,.]?[0-9]+)", RegexOptions.IgnoreCase))); // number
 
             var tokens = new List<Tuple<string, Token>>();
 
@@ -81,8 +80,7 @@ namespace CommandLineParser
 
             while (tokens.Count > 0)
             {
-                if (tokens.Select(t => t.Item2).SequenceEqual(new List<Token>() { Token.Separator, Token.Identifier, Token.Separator, Token.Number })
-                    || tokens.Select(t => t.Item2).SequenceEqual(new List<Token>() { Token.Separator, Token.Identifier, Token.Separator, Token.String })) // --identifier=123
+                if (tokens.Select(t => t.Item2).SequenceEqual(new List<Token>() { Token.Separator, Token.Identifier, Token.Separator, Token.Value })) // --identifier=123
                 {
                     parsedVariables.Add(tokens[1].Item1, tokens[3].Item1);
                     tokens.RemoveRange(0, 4);
@@ -93,8 +91,9 @@ namespace CommandLineParser
                     tokens.RemoveRange(0, 2);
                 }
                 else
+                {
                     throw new Exception(String.Format("parse error near: {0}", tokens[0].Item1));
-               
+                }
             }
 
             return parsedVariables;
