@@ -14,23 +14,26 @@ namespace CommandLineParser
 {
     public class Parser
     {
-        private Dictionary<string, PropertyInfo> Parameters;
-
         public enum Token
         {
             Identifier,
             Value,
             Separator
         }
+        
+
 
         public List<Tuple<string, Token>> Tokenize(string commandLine)
         {
             var tokenRegex = new List<Tuple<Token, Regex>>();
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Identifier, new Regex(@"^([a-z|_][a-z|0-9]*)", RegexOptions.IgnoreCase)));
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Separator, new Regex(@"^(-{1,2}|^/| +|[ *=: *])", RegexOptions.IgnoreCase))); // whitspace, =, / etc.
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^""(.*)"""))); // "" enclosed string
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^'(.*)'"))); // '' enclosed string 
-            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^([0-9]+[,.]?[0-9]+)", RegexOptions.IgnoreCase))); // number
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Identifier, new Regex(@"^-{1,2}([a-z][a-z|0-9]*)", RegexOptions.IgnoreCase))); // --identifier
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Identifier, new Regex(@"^/([a-z][a-z|0-9]*)", RegexOptions.IgnoreCase))); // /identifier
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Identifier, new Regex(@"^-{1,2}(\?)", RegexOptions.IgnoreCase))); // -?
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Separator, new Regex(@"^( +|[ *=: *])", RegexOptions.IgnoreCase))); // whitspace, =, / etc.
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^""([^\""]*)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))); // "" enclosed string
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^'([^\""']*)'", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))); // '' enclosed string
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^([0-9]+[,.]?[0-9]*)", RegexOptions.IgnoreCase))); // number
+            tokenRegex.Add(new Tuple<Token, Regex>(Token.Value, new Regex(@"^(([a-z]:)?[0-9|.|-|\\|/|a-z]+)", RegexOptions.IgnoreCase))); // path
 
             var tokens = new List<Tuple<string, Token>>();
 
@@ -80,20 +83,31 @@ namespace CommandLineParser
 
             while (tokens.Count > 0)
             {
-                if (tokens.Select(t => t.Item2).SequenceEqual(new List<Token>() { Token.Separator, Token.Identifier, Token.Separator, Token.Value })) // --identifier=123
+
+                var tmp = tokens.Select(t => t.Item2);
+
+                if (tokens.Select(t => t.Item2).Take(3).SequenceEqual(new List<Token>() { Token.Identifier, Token.Separator, Token.Value })) // --identifier=123
                 {
-                    parsedVariables.Add(tokens[1].Item1, tokens[3].Item1);
-                    tokens.RemoveRange(0, 4);
+                    parsedVariables.Add(tokens[0].Item1, tokens[2].Item1);
+                    tokens.RemoveRange(0, 3);
                 }
-                else if (tokens.Select(t => t.Item2).SequenceEqual(new List<Token>() { Token.Separator, Token.Identifier })) // -booleanStyleArg
+                else if (tokens.Select(t => t.Item2).Take(2).SequenceEqual(new List<Token>() { Token.Identifier, Token.Value })) // -identifier 13  (given in separate args)
                 {
-                    parsedVariables.Add(tokens[1].Item1, true.ToString());
+                    parsedVariables.Add(tokens[0].Item1, tokens[1].Item1);
                     tokens.RemoveRange(0, 2);
+                }
+                else if (tokens.Select(t => t.Item2).Take(1).SequenceEqual(new List<Token>() { Token.Identifier })) // -booleanStyleArg
+                {
+                    parsedVariables.Add(tokens[0].Item1, true.ToString());
+                    tokens.RemoveRange(0, 1);
                 }
                 else
                 {
                     throw new Exception(String.Format("parse error near: {0}", tokens[0].Item1));
                 }
+
+                if (tokens.Count > 0 && tokens[0].Item2 == Token.Separator) // remove unneeded separator after valid parser food.
+                    tokens.RemoveRange(0, 1);                   
             }
 
             return parsedVariables;
@@ -101,12 +115,15 @@ namespace CommandLineParser
 
         public void Parse(string[] args)
         {
+            if (args == null)
+                return;
+
             var tokens = new List<Tuple<string, Token>>();
             foreach (var arg in args)
                 tokens.AddRange(Tokenize(arg));
 
             var parsedVariables = ParseTokens(tokens);
-            SetupParameterDictionary();
+            var parameters = GetParameterDictionary();
 
             // Set values on properties for found parameters.
             foreach (var entry in parsedVariables)
@@ -114,7 +131,7 @@ namespace CommandLineParser
                 var parameterName = entry.Key;
                 var valueString = entry.Value;
 
-                if (!Parameters.ContainsKey(parameterName)) // parameter mismatch match.
+                if (!parameters.ContainsKey(parameterName)) // parameter mismatch match.
                 {
                     throw new InvalidProgramException(String.Format("Unknown parameter specified: {0}", parameterName));
                 }
@@ -122,8 +139,8 @@ namespace CommandLineParser
                 object value = null;
                 try
                 {
-                    value = ConvertStringToObject(valueString, Parameters[parameterName].PropertyType);
-                    Parameters[parameterName].SetValue(this, value, null);
+                    value = ConvertStringToObject(valueString, parameters[parameterName].PropertyType);
+                    parameters[parameterName].SetValue(this, value, null);
                 }
                 catch (Exception ex)
                 {
@@ -137,18 +154,21 @@ namespace CommandLineParser
             return TypeDescriptor.GetConverter(type).ConvertFromString(null, CultureInfo.InvariantCulture, text);
         }
 
-        private void SetupParameterDictionary()
+        public Dictionary<string, PropertyInfo> GetParameterDictionary()
         {
-            Parameters = new Dictionary<string, PropertyInfo>();
+            var parameters = new Dictionary<string, PropertyInfo>();
 
             foreach (var prop in GetType().GetProperties())
             {
                 var attribute = (ParameterAttribute)Attribute.GetCustomAttribute(prop, typeof(ParameterAttribute));
                 if (attribute != null)
                 {
-                    Parameters.Add(attribute.ParamName, prop);
+                    foreach (var param in attribute.ParamName)
+                        parameters.Add(param, prop);
                 }
             }
+
+            return parameters;
         }
 
 

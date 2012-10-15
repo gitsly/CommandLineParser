@@ -12,8 +12,7 @@ namespace CommandLineParser.Tests
     [TestFixture]
     public class CommandLineParserTests
     {
-
-        public class BasicCommandLineTest : Parser
+        private class BasicCommandLineTest : Parser
         {
             [ParameterAttribute("testParam")]
             public string TestParam { get; set; }
@@ -24,45 +23,106 @@ namespace CommandLineParser.Tests
             [ParameterAttribute("testInt")]
             public Int32 Int32Param { get; set; }
 
+            [ParameterAttribute("testInt64")]
+            public Int64 Int64Param { get; set; }
+
+            [ParameterAttribute("testFloat")]
+            public float FloatParam { get; set; }
+
+            [ParameterAttribute("path", "filename")]
+            public string PathParam { get; set; }
         }
+
+        private BasicCommandLineTest parser;
+
+        [SetUp]
+        public void SetupEachTest()
+        {
+            parser = new BasicCommandLineTest();
+        }
+
+        [Test, Explicit]
+        public void RegexTest() // Use for testing out regular expressions.
+        {
+            //var test = new Regex(@"((?<="")[^\""]*(?=""))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            var test = new Regex(@"^""([^\""]*)""", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            var secureStoragePath = @"""hep"" ""pas""";
+
+            var match = test.Match(secureStoragePath);
+
+            if (match.Success)
+            {
+                Console.WriteLine("matched: '{0}', from pos: {1}, entire: '{2}'", match.Groups[1].Value, match.Index, match.Value);
+            }
+        }
+
 
         [Test]
         public void TestTokenize()
         {
-            var parser = new BasicCommandLineTest();
-
             var result = parser.Tokenize("--heppas -was a 'ninja'=123");
-            Assert.AreEqual(11, result.Count);
-            Assert.AreEqual(6, result.Where(r => r.Item2 == Parser.Token.Separator).Count());
-            Assert.AreEqual(3, result.Where(r => r.Item2 == Parser.Token.Identifier).Count());
-            Assert.AreEqual(2, result.Where(r => r.Item2 == Parser.Token.Value).Count());
+            Assert.AreEqual(9, result.Count);
+            Assert.AreEqual(4, result.Where(r => r.Item2 == Parser.Token.Separator).Count());
+            Assert.AreEqual(2, result.Where(r => r.Item2 == Parser.Token.Identifier).Count());
+            Assert.AreEqual(3, result.Where(r => r.Item2 == Parser.Token.Value).Count());
         }
 
-        /*
-        [Test]
-        public void test1()
-        {
-            var test = new Regex(@"^""(.*)""|^'(.*)'");
 
-            var m = test.Match("'123'");
-
-        }
-        */
 
         [Test]
         public void ParseOneParameterWithValue()
         {
-            var parser = new BasicCommandLineTest();
-
             parser.Parse(new string[] { "--testParam=123" });
             Assert.AreEqual("123", parser.TestParam);
         }
 
         [Test]
+        public void ParseParameterValueFromString()
+        {
+            parser.Parse(new string[] { @"--testParam=""teststring""" });
+            Assert.AreEqual("teststring", parser.TestParam);
+        }
+
+        [Test]
+        public void ModifyPropertyWithTwoDifferentParams()
+        {
+            parser.Parse(new string[] { @"-path test1" });
+            Assert.AreEqual("test1", parser.PathParam);
+
+            parser.Parse(new string[] { @"-filename test2" });
+            Assert.AreEqual("test2", parser.PathParam);
+
+        }
+
+
+        [Test]
+        public void ShouldBeAbleToParseMultipleStringArguments()
+        {
+            var args = new string[] { @"-testParam ""test"" -path ""again""" };
+            parser.Parse(args);
+            Assert.AreEqual("test", parser.TestParam);
+            Assert.AreEqual("again", parser.PathParam);
+        }
+
+        [Test]
+        public void ParseInt64Param()
+        {
+            parser.Parse(new string[] { "--testInt64 =          1100200300400" });
+            Assert.AreEqual(1100200300400, parser.Int64Param);
+        }
+
+        [Test]
+        public void ParsePathParam()
+        {
+            parser.Parse(new string[] { "-path", "./test.bin" });
+            Assert.AreEqual("./test.bin", parser.PathParam);
+        }
+
+
+        [Test]
         public void ParseWithDifferentAssignmentOperators()
         {
-            var parser = new BasicCommandLineTest();
-
             parser.Parse(new string[] { "--testParam='123'" });
             Assert.AreEqual("123", parser.TestParam);
 
@@ -78,22 +138,35 @@ namespace CommandLineParser.Tests
             parser.Parse(new string[] { " -testInt= 716" });
             Assert.AreEqual(716, parser.Int32Param);
 
-            parser.Parse(new string[] { "-testInt:21" });
-            Assert.AreEqual(21, parser.Int32Param);
+            parser.Parse(new string[] { "-testInt:1" });
+            Assert.AreEqual(1, parser.Int32Param);
 
             parser.Parse(new string[] { "/testInt 123" });
             Assert.AreEqual(123, parser.Int32Param);
 
             parser.Parse(new string[] { "-testInt=67 " });
             Assert.AreEqual(67, parser.Int32Param);
+
+            parser.Parse(new string[] { "-testFloat = 2.25 " });
+            Assert.AreEqual(2.25, parser.FloatParam);
+
+            parser.Parse(new string[] { "-testFloat = 026.7500 " });
+            Assert.AreEqual(026.7500, parser.FloatParam);
+        }
+
+        [Test]
+        public void ShouldBeAbleToUseMultipleArguments()
+        {
+            var args = new string[] { "-testFloat", "4.5", "--testInt", "32"};
+            parser.Parse(args);
+            Assert.AreEqual(4.5, parser.FloatParam);
+            Assert.AreEqual(32, parser.Int32Param);
         }
 
 
         [Test]
         public void ShouldBeAbleToAcceptDifferentTypes()
         {
-            var parser = new BasicCommandLineTest();
-
             parser.Parse(new string[] { "--testInt 100" });
             
             Assert.IsFalse(parser.BooleanParam);
@@ -103,8 +176,6 @@ namespace CommandLineParser.Tests
         [Test]
         public void ShouldBeAbleToParseMultipleTimes()
         {
-            var parser = new BasicCommandLineTest();
-
             Assert.IsFalse(parser.BooleanParam);
             
             parser.Parse(new string[] { "--testBool" });
@@ -118,7 +189,6 @@ namespace CommandLineParser.Tests
         [Test]
         public void ShouldThrowExceptionOnInvalidValueForParam()
         {
-            var parser = new BasicCommandLineTest();
             Assert.Throws(typeof(Exception), delegate
             {
                 parser.Parse(new string[] { "--testBool 123" }); // Wrong value for type bool
@@ -128,8 +198,6 @@ namespace CommandLineParser.Tests
         [Test]
         public void TestOneParameterWithoutValue()
         {
-            var parser = new BasicCommandLineTest();
-
             parser.Parse(new string[] { "--testBool" });
             Assert.IsTrue(parser.BooleanParam);
         }
